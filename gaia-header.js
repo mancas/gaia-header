@@ -64,12 +64,23 @@ const MINIMUM_FONT_SIZE_UNCENTERED = 16;
  */
 const MAXIMUM_FONT_SIZE = 23;
 
+// Shared instance
+var _scheduler = null;
+
 /**
  * Register the element.
  *
  * @return {Element} constructor
  */
 module.exports = component.register('gaia-header', {
+
+    get scheduler() {
+      return _scheduler;
+    },
+    
+    set scheduler(scheduler) {
+      _scheduler = scheduler;
+    },
 
   /**
    * Called when the element is first created.

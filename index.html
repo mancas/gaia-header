@@ -126,6 +126,7 @@
   <script>
   var els = document.querySelectorAll('gaia-header');
   [].forEach.call(els, function(el, i) {
+    console.info(els);
     el.addEventListener('action', function(e) {
       var num = i + 1;
       message.textContent = 'header (' + num + ') action (' + e.detail.type + ')';
