@@ -1,8 +1,8 @@
 {
-  "name": "DOM-Scheduler GAIA-DIALOGS",
+  "name": "DOM-Scheduler GAIA-HEADER",
   "version": "0.1.0",
   "launch_path": "/index.html",
-  "description": "DOM-Scheduler GAIA-DIALOGS",
+  "description": "DOM-Scheduler GAIA-HEADER",
   "developer": {
     "url": "https://owd.tid.es/store",
     "name": "TID"

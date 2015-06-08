@@ -247,9 +247,8 @@ module.exports = component.register('gaia-header', {
    */
   getTitleStyle: function(el, space) {
     debug('get el style', el, space);
-    var style;
-
     return new Promise((resolve) => {
+      var style;
       this.scheduler.mutation(() => {
         var text = el.textContent;
         var styleId = space.start + text + space.end + '#' + space.value;
