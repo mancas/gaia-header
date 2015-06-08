@@ -92,33 +92,47 @@ module.exports = component.register('gaia-header', {
    */
   created: function() {
     debug('created');
-    this.setupShadowRoot();
+  },
 
-    // Elements
-    this.els = {
-      actionButton: this.shadowRoot.querySelector('.action-button'),
-      buttons: this.querySelectorAll('button, a'),
-      titles: this.querySelectorAll('h1')
-    };
+  attachBehavior: function(scheduler) {
+    if (!scheduler) {
+      scheduler = new DomScheduler();
+      scheduler.naive = true;
+    }
 
-    // Events
-    this.els.actionButton.addEventListener('click',
-      e => this.onActionButtonClick(e));
-    this.observer = new MutationObserver(this.onMutation.bind(this));
+    this.scheduler = scheduler;
 
-    // Properties
-    this.titleEnd = this.getAttribute('title-end');
-    this.titleStart = this.getAttribute('title-start');
-    this.noFontFit = this.getAttribute('no-font-fit');
-    this.notFlush = this.hasAttribute('not-flush');
-    this.action = this.getAttribute('action');
+    this.scheduler.mutation(this.setupShadowRoot.bind(this)).then(() => {
+      // Elements
+      this.els = {
+        actionButton: this.shadowRoot.querySelector('.action-button'),
+        buttons: this.querySelectorAll('button, a'),
+        titles: this.querySelectorAll('h1')
+      };
 
-    this.unresolved = {};
-    this.pending = {};
-    this._resizeThrottlingId = null;
+      // Events
+      this.els.actionButton.addEventListener('click',
+        e => this.onActionButtonClick(e));
+      this.observer = new MutationObserver(this.onMutation.bind(this));
 
-    // bind the listener in advance so that we can remove it when detaching.
-    this.onResize = this.onResize.bind(this);
+      // Properties
+      this.titleEnd = this.getAttribute('title-end');
+      this.titleStart = this.getAttribute('title-start');
+      this.noFontFit = this.getAttribute('no-font-fit');
+      this.notFlush = this.hasAttribute('not-flush');
+      this.action = this.getAttribute('action');
+
+      this.unresolved = {};
+      this.pending = {};
+      this._resizeThrottlingId = null;
+
+      // bind the listener in advance so that we can remove it when detaching.
+      this.onResize = this.onResize.bind(this);
+
+      this.runFontFitSoon();
+      this.observerStart();
+      window.addEventListener('resize', this.onResize);
+    });
   },
 
   /**
@@ -137,9 +151,6 @@ module.exports = component.register('gaia-header', {
    */
   attached: function() {
     debug('attached');
-    this.runFontFitSoon();
-    this.observerStart();
-    window.addEventListener('resize', this.onResize);
   },
 
   /**
@@ -193,12 +204,22 @@ module.exports = component.register('gaia-header', {
 
     var titles = this.els.titles;
     var space = this.getTitleSpace();
-    var styles = [].map.call(titles, el => this.getTitleStyle(el, space));
+    var promises = [];
+    var styles = [];
+    [].forEach.call(titles, (el, i) => {
+      var promise = this.getTitleStyle(el, space);
+      promise.then((style) => {
+        styles[i] = style;
+      });
+      promises.push(promise);
+    });
 
     // Update the title styles using the latest
     // styles. This function can be called many
     // times but will only run once in each tick.
-    return this.setTitleStylesSoon(styles);
+    return Promise.all(promises).then(() => {
+      this.scheduler.mutation(this.setTitleStylesSoon.bind(this, styles));
+    });
   },
 
   /**
@@ -226,45 +247,53 @@ module.exports = component.register('gaia-header', {
    */
   getTitleStyle: function(el, space) {
     debug('get el style', el, space);
-    var text = el.textContent;
-    var styleId = space.start + text + space.end + '#' + space.value;
+    var style;
 
-    // Bail when there's no text (or just whitespace)
-    if (!text || !text.trim()) { return debug('exit: no text'); }
+    return new Promise((resolve) => {
+      this.scheduler.mutation(() => {
+        var text = el.textContent;
+        var styleId = space.start + text + space.end + '#' + space.value;
 
-    // If neither the text or the titleSpace
-    // changed, there's no reason to continue.
-    if (getStyleId(el) === styleId) { return debug('exit: no change'); }
+        // Bail when there's no text (or just whitespace)
+        if (!text || !text.trim()) { return debug('exit: no text'); }
 
-    var marginStart = this.getTitleMarginStart();
-    var textSpace = space.value - Math.abs(marginStart);
-    var fontFitResult = this.fontFit(text, textSpace, {
-      min: MINIMUM_FONT_SIZE_CENTERED
+        // If neither the text or the titleSpace
+        // changed, there's no reason to continue.
+        if (getStyleId(el) === styleId) { return debug('exit: no change'); }
+
+        var marginStart = this.getTitleMarginStart();
+        var textSpace = space.value - Math.abs(marginStart);
+        var fontFitResult = this.fontFit(text, textSpace, {
+          min: MINIMUM_FONT_SIZE_CENTERED
+        });
+
+        var overflowing = fontFitResult.overflowing;
+        var padding = { start: 0, end: 0 };
+
+        // If the text is overflowing in the
+        // centered title, we remove centering
+        // to free up space, rerun fontFit to
+        // get a fontSize which fits this space.
+        if (overflowing) {
+          debug('title overflowing');
+          padding.start = !space.start ? TITLE_PADDING : 0;
+          padding.end = !space.end ? TITLE_PADDING : 0;
+          textSpace = space.value - padding.start - padding.end;
+          fontFitResult = this.fontFit(text, textSpace);
+          marginStart = 0;
+        }
+
+        style = {
+          id: styleId,
+          fontSize: fontFitResult.fontSize,
+          marginStart: marginStart,
+          overflowing: overflowing,
+          padding: padding
+        };
+      }).then(() => {
+        resolve(style);
+      });
     });
-
-    var overflowing = fontFitResult.overflowing;
-    var padding = { start: 0, end: 0 };
-
-    // If the text is overflowing in the
-    // centered title, we remove centering
-    // to free up space, rerun fontFit to
-    // get a fontSize which fits this space.
-    if (overflowing) {
-      debug('title overflowing');
-      padding.start = !space.start ? TITLE_PADDING : 0;
-      padding.end = !space.end ? TITLE_PADDING : 0;
-      textSpace = space.value - padding.start - padding.end;
-      fontFitResult = this.fontFit(text, textSpace);
-      marginStart = 0;
-    }
-
-    return {
-      id: styleId,
-      fontSize: fontFitResult.fontSize,
-      marginStart: marginStart,
-      overflowing: overflowing,
-      padding: padding
-    };
   },
 
   /**
