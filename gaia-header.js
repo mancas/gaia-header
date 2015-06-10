@@ -204,22 +204,12 @@ module.exports = component.register('gaia-header', {
 
     var titles = this.els.titles;
     var space = this.getTitleSpace();
-    var promises = [];
-    var styles = [];
-    [].forEach.call(titles, (el, i) => {
-      var promise = this.getTitleStyle(el, space);
-      promise.then((style) => {
-        styles[i] = style;
-      });
-      promises.push(promise);
-    });
+    var styles = [].map.call(titles, el => this.getTitleStyle(el, space));
 
     // Update the title styles using the latest
     // styles. This function can be called many
     // times but will only run once in each tick.
-    return Promise.all(promises).then(() => {
-      this.scheduler.mutation(this.setTitleStylesSoon.bind(this, styles));
-    });
+    return this.setTitleStylesSoon(styles);
   },
 
   /**
@@ -354,12 +344,15 @@ module.exports = component.register('gaia-header', {
   setTitleStyle: function(el, style) {
     debug('set title style', style);
     this.observerStop();
-    el.style.marginLeft = style.marginStart + 'px';
-    el.style.paddingLeft = style.padding.start + 'px';
-    el.style.paddingRight = style.padding.end + 'px';
-    el.style.fontSize = style.fontSize + 'px';
-    setStyleId(el, style.id);
-    this.observerStart();
+    this.scheduler.mutation(() => {
+      el.style.marginLeft = style.marginStart + 'px';
+      el.style.paddingLeft = style.padding.start + 'px';
+      el.style.paddingRight = style.padding.end + 'px';
+      el.style.fontSize = style.fontSize + 'px';
+      setStyleId(el, style.id);
+    }).then(() => {
+      this.observerStart();
+    });
   },
 
   /**
