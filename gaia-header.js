@@ -237,52 +237,45 @@ module.exports = component.register('gaia-header', {
    */
   getTitleStyle: function(el, space) {
     debug('get el style', el, space);
-    return new Promise((resolve) => {
-      var style;
-      this.scheduler.mutation(() => {
-        var text = el.textContent;
-        var styleId = space.start + text + space.end + '#' + space.value;
+    var text = el.textContent;
+    var styleId = space.start + text + space.end + '#' + space.value;
 
-        // Bail when there's no text (or just whitespace)
-        if (!text || !text.trim()) { return debug('exit: no text'); }
+    // Bail when there's no text (or just whitespace)
+    if (!text || !text.trim()) { return debug('exit: no text'); }
 
-        // If neither the text or the titleSpace
-        // changed, there's no reason to continue.
-        if (getStyleId(el) === styleId) { return debug('exit: no change'); }
+    // If neither the text or the titleSpace
+    // changed, there's no reason to continue.
+    if (getStyleId(el) === styleId) { return debug('exit: no change'); }
 
-        var marginStart = this.getTitleMarginStart();
-        var textSpace = space.value - Math.abs(marginStart);
-        var fontFitResult = this.fontFit(text, textSpace, {
-          min: MINIMUM_FONT_SIZE_CENTERED
-        });
-
-        var overflowing = fontFitResult.overflowing;
-        var padding = { start: 0, end: 0 };
-
-        // If the text is overflowing in the
-        // centered title, we remove centering
-        // to free up space, rerun fontFit to
-        // get a fontSize which fits this space.
-        if (overflowing) {
-          debug('title overflowing');
-          padding.start = !space.start ? TITLE_PADDING : 0;
-          padding.end = !space.end ? TITLE_PADDING : 0;
-          textSpace = space.value - padding.start - padding.end;
-          fontFitResult = this.fontFit(text, textSpace);
-          marginStart = 0;
-        }
-
-        style = {
-          id: styleId,
-          fontSize: fontFitResult.fontSize,
-          marginStart: marginStart,
-          overflowing: overflowing,
-          padding: padding
-        };
-      }).then(() => {
-        resolve(style);
-      });
+    var marginStart = this.getTitleMarginStart();
+    var textSpace = space.value - Math.abs(marginStart);
+    var fontFitResult = this.fontFit(text, textSpace, {
+      min: MINIMUM_FONT_SIZE_CENTERED
     });
+
+    var overflowing = fontFitResult.overflowing;
+    var padding = { start: 0, end: 0 };
+
+    // If the text is overflowing in the
+    // centered title, we remove centering
+    // to free up space, rerun fontFit to
+    // get a fontSize which fits this space.
+    if (overflowing) {
+      debug('title overflowing');
+      padding.start = !space.start ? TITLE_PADDING : 0;
+      padding.end = !space.end ? TITLE_PADDING : 0;
+      textSpace = space.value - padding.start - padding.end;
+      fontFitResult = this.fontFit(text, textSpace);
+      marginStart = 0;
+    }
+
+    return style = {
+      id: styleId,
+      fontSize: fontFitResult.fontSize,
+      marginStart: marginStart,
+      overflowing: overflowing,
+      padding: padding
+    };
   },
 
   /**
